@@ -15,6 +15,12 @@
 |---|---|---|
 | `BOARD_RP2350B` (default) | Pico 2 W, Waveshare Plus-W | GP42 (ADC2) |
 | `BOARD_RP2350A` | Pico 2 | GP26–GP29 only |
+| `BOARD_RP2040` | Pico, KB2040, etc. | GP26–GP29 only |
+
+On RP2040 the firmware runs at the SDK default clock (no overclock/VREG/QMI
+setup) and the ADC samples at ~500 kSa/s (2 µs/sample). The default RP2040 pin
+map matches the KB2040: I2C on GP12/GP13 (STEMMA QT), `PEX_RST` on GP10, NVVDD
+sense on GP26.
 
 ## Build
 
@@ -29,12 +35,20 @@ ninja -C build
 cmake -S firmware -B build-pico2 -DPICO_BOARD=pico2 -DBOARD_RP2350A=ON -G Ninja
 ninja -C build-pico2
 
+# RP2040 (Pico, KB2040, ...)
+cmake -S firmware -B build-rp2040 -DPICO_BOARD=adafruit_kb2040 -DBOARD_RP2040=ON -G Ninja
+ninja -C build-rp2040
+
 # NVVDD ADC disabled (GP42 unwired)
 cmake -S firmware -B build-noadc -DPICO_BOARD=pico2_w -DNVVDD_ADC=OFF -G Ninja
 ninja -C build-noadc
 ```
 
 Outputs: `build/pwmvid.uf2` (main firmware), `build/detect.uf2` (standalone I2C probe).
+
+RP2040 boards present as `RPI-RP2` in BOOTSEL mode rather than `RP2350`; on the
+KB2040 the default pin map is I2C on GP12/GP13 (STEMMA QT), `PEX_RST` on GP10,
+and the optional NVVDD sense on GP26 (A0).
 
 ## Flashing
 

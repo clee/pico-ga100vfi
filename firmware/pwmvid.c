@@ -1,10 +1,15 @@
 // Glitcher for the NVVDD rail (MP2888B @ I2C 0x25) on GA100 boards.
 //
-// Wiring (only four RP2350 pins are connected to the card):
+// Wiring (RP2350 default; see board.h for per-board pins):
 //   GP0  I2C0 SDA  -> MP2888B (PMBus, 0x25)
 //   GP1  I2C0 SCL
 //   GP22 PEX_RST_BUF*  (drive low to reset, release to high-Z; never drive high)
 //   GP42 NVVDD sense   (ADC2, optional, diagnostic only)
+//
+// RP2040 (e.g. KB2040): GP12/GP13 (STEMMA QT) I2C, GP10 PEX_RST, GP26 NVVDD.
+// The RP2040 stays at the SDK default clock; clk_adc keeps its 48 MHz source
+// (500 kSa/s, ~2 us/sample). The glitch timeline is microsecond-scale, so no
+// overclock is needed and none of the RP2350 vreg/QMI/clk_adc setup applies.
 //
 // GP15 (PWM-VID handback) and GP40 (PWM-VID capture) are NOT connected: the
 // 0-ohm R30 on the GPU PCB is refitted and the GPU drives the MP2888B itself.
@@ -12,8 +17,8 @@
 //
 // Actuation is I2C-only: VOUT_COMMAND steps on the MP2888B plus PEX_RST. The
 // NVVDD ADC never feeds the glitch decision, so the sense wire is optional:
-// build without -DNVVDD_ADC (or leave GP42 unwired) and VFI is unchanged;
-// `v` then reports nvvdd=N/A and `y` is empty.
+// build without -DNVVDD_ADC (or leave the sense pin unwired) and VFI is
+// unchanged; `v` then reports nvvdd=N/A and `y` is empty.
 //
 // Core 1 only feeds the watchdog; the ADC trace is captured by DMA on core 0.
 
@@ -27,16 +32,24 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/i2c.h"
-#include "hardware/structs/qmi.h"
 #include "hardware/vreg.h"
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "pico/multicore.h"
+#if !defined(BOARD_RP2040)
+#include "hardware/structs/qmi.h"
+#endif
 
 #include "board.h"
 
+#if defined(BOARD_RP2040)
+#define TARGET_KHZ   133000
+#define VSEL_STR     "stock"
+#else
 #define TARGET_KHZ   400000
 #define VREG_VSEL    VREG_VOLTAGE_1_50
+#define VSEL_STR     "1.50V"
+#endif
 #define PEX_RST_PIN  PIN_PEX_RST
 
 // PMBus VOUT_COMMAND: 6.25 mV/LSB.
@@ -48,6 +61,11 @@
 
 // ------------------------------------------------------------------ clocks
 static void clock_init(void) {
+#if defined(BOARD_RP2040)
+    // RP2040: stay at the SDK default clock. clk_adc keeps its 48 MHz source,
+    // so the ADC runs at ~500 kSa/s (2 us/sample); the glitch timeline and the
+    // 1 MHz PMBus signalling do not need the RP2350 clock tree at all.
+#else
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VSEL);
     sleep_us(1000);
@@ -69,6 +87,7 @@ static void clock_init(void) {
     uint32_t fadc = clock_get_hz(clk_sys);
     clock_configure(clk_adc, 0, CLOCKS_CLK_ADC_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
                     fadc, fadc);
+#endif
 #endif
 }
 
@@ -513,6 +532,22 @@ void __attribute__((used)) hardfault_c(uint32_t *frame) {
     while (true) tight_loop_contents();
 }
 
+#if defined(BOARD_RP2040)
+// ARMv6-M (Cortex-M0+): no IT blocks and no conditional execution, so test the
+// exception-return bit with plain instructions.
+void __attribute__((naked)) isr_hardfault(void) {
+    __asm volatile(
+        "mov r0, lr\n"
+        "movs r1, #4\n"
+        "tst r0, r1\n"
+        "beq 1f\n"
+        "mrs r0, psp\n"
+        "b hardfault_c\n"
+        "1:\n"
+        "mrs r0, msp\n"
+        "b hardfault_c\n");
+}
+#else
 void __attribute__((naked)) isr_hardfault(void) {
     __asm volatile(
         "tst lr, #4\n"
@@ -521,6 +556,7 @@ void __attribute__((naked)) isr_hardfault(void) {
         "mrsne r0, psp\n"
         "b hardfault_c\n");
 }
+#endif
 
 static void reset_reason(void) {
     uint32_t s0 = watchdog_hw->scratch[0];
@@ -561,8 +597,8 @@ int main(void) {
     stdio_init_all();
     i2c_pins_float();
     sleep_ms(1500);
-    printf("\npwmvid: %u MHz, vsel=%d, wiring: I2C + PEX_RST",
-           clock_get_hz(clk_sys) / 1000000, VREG_VSEL);
+    printf("\npwmvid: %u MHz, vsel=%s, wiring: I2C + PEX_RST",
+           clock_get_hz(clk_sys) / 1000000, VSEL_STR);
 #ifdef NVVDD_ADC
     printf(" + NVVDD ADC (GP%d)\n", PIN_NVVDD_ADC);
 #else
@@ -593,12 +629,12 @@ int main(void) {
         else if (c == 'v') {
 #ifdef NVVDD_ADC
             nvvdd_refresh();
-            printf("clk=%u MHz  vsel=%d  nvvdd=%.4f V  sample_ns=%.1f  last reset: %s\n",
-                   clock_get_hz(clk_sys) / 1000000, VREG_VSEL,
+            printf("clk=%u MHz  vsel=%s  nvvdd=%.4f V  sample_ns=%.1f  last reset: %s\n",
+                   clock_get_hz(clk_sys) / 1000000, VSEL_STR,
                    nvvdd_v, sample_ns, reset_note);
 #else
-            printf("clk=%u MHz  vsel=%d  nvvdd=N/A  last reset: %s\n",
-                   clock_get_hz(clk_sys) / 1000000, VREG_VSEL, reset_note);
+            printf("clk=%u MHz  vsel=%s  nvvdd=N/A  last reset: %s\n",
+                   clock_get_hz(clk_sys) / 1000000, VSEL_STR, reset_note);
 #endif
         }
         else if (c == 'u') unlock_cmd();

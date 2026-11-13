@@ -6,21 +6,25 @@ pico_sdk_init()
 # Board family: enable at most one (see firmware/board.h).
 #   RP2350A  = Pico 2                       (ADC on GP26-GP29 only)
 #   RP2350B  = Pico 2 W / Waveshare Plus-W  (ADC on GP40-GP47)   <- default
+#   RP2040   = Pico, KB2040, etc.           (ADC on GP26-GP29 only)
 option(BOARD_RP2350A "Build for RP2350A (Pico 2)" OFF)
 option(BOARD_RP2350B "Build for RP2350B (Pico 2 W / Plus-W)" OFF)
+option(BOARD_RP2040 "Build for RP2040 (Pico, KB2040, etc.)" OFF)
 
 # NVVDD_ADC: enable ADC sampling of the NVVDD rail (GP42 on RP2350B).
 # Without it, `v` reports nvvdd=N/A and `y` prints a disabled notice.
 option(NVVDD_ADC "Enable NVVDD ADC monitoring (GP42)" ON)
 
-if(BOARD_RP2350A AND BOARD_RP2350B)
-    message(FATAL_ERROR "enable only one of BOARD_RP2350A / BOARD_RP2350B")
+if((BOARD_RP2350A AND BOARD_RP2350B) OR (BOARD_RP2350A AND BOARD_RP2040) OR (BOARD_RP2350B AND BOARD_RP2040))
+    message(FATAL_ERROR "enable only one of BOARD_RP2350A / BOARD_RP2350B / BOARD_RP2040")
 endif()
 
 if(BOARD_RP2350A)
     set(BOARD_DEF BOARD_RP2350A)
 elseif(BOARD_RP2350B)
     set(BOARD_DEF BOARD_RP2350B)
+elseif(BOARD_RP2040)
+    set(BOARD_DEF BOARD_RP2040)
 else()
     set(BOARD_DEF BOARD_RP2350B)
     message(STATUS "pico-ga100vfi: no family given, defaulting to RP2350B")
