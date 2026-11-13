@@ -102,8 +102,10 @@ pin choices at compile time.
 On RP2040 the firmware stays at the SDK default clock (no 400 MHz overclock, no
 VREG/QMI setup) and the ADC runs at ~500 kSa/s (2 µs/sample). The glitch
 sequence, PMBus timing and host protocol are identical to the RP2350 builds.
-The default RP2040 pin map follows the KB2040: I2C on the STEMMA QT pair
-(GP12/GP13), `PEX_RST` on GP10, NVVDD sense on GP26.
+The default RP2040 pin map follows the KB2040: I2C on GP0/GP1 (castellated TX/RX
+pads, no STEMMA QT cable needed — the same pins as the RP2350 default), `PEX_RST`
+on GP10 (GP22 is not broken out; avoid GP11, the BOOT button), NVVDD sense on
+GP26.
 
 ### 400 MHz overclock & ADC clock
 

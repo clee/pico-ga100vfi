@@ -17,10 +17,12 @@
 //   i2c1: SDA = GP % 4 == 2 (2, 6, 10, ...), SCL = GP % 4 == 3 (3, 7, 11, ...)
 // I2C_BUS selects i2c0 or i2c1 automatically from PIN_I2C_SDA.
 #if defined(BOARD_RP2040)
-// KB2040: STEMMA QT pair (GP12/GP13) avoids soldering to the castellated TX/RX.
-#define PIN_I2C_SDA 12
-#define PIN_I2C_SCL 13
+// KB2040: use the castellated TX/RX pads (GP0/GP1 = i2c0), so no STEMMA QT
+// cable is required and the I2C pins match the RP2350 defaults.
+#define PIN_I2C_SDA 0
+#define PIN_I2C_SCL 1
 // KB2040 exposes roughly GP0-GP13 + GP26-GP29; GP22 is not broken out.
+// Avoid GP11 (D11): it is the BOOT button.
 #define PIN_PEX_RST 10
 #else
 #define PIN_I2C_SDA 0

@@ -6,10 +6,11 @@
 //   GP22 PEX_RST_BUF*  (drive low to reset, release to high-Z; never drive high)
 //   GP42 NVVDD sense   (ADC2, optional, diagnostic only)
 //
-// RP2040 (e.g. KB2040): GP12/GP13 (STEMMA QT) I2C, GP10 PEX_RST, GP26 NVVDD.
-// The RP2040 stays at the SDK default clock; clk_adc keeps its 48 MHz source
-// (500 kSa/s, ~2 us/sample). The glitch timeline is microsecond-scale, so no
-// overclock is needed and none of the RP2350 vreg/QMI/clk_adc setup applies.
+// RP2040 (e.g. KB2040): GP0/GP1 (TX/RX castellated pads) I2C, GP10 PEX_RST,
+// GP26 NVVDD. The RP2040 stays at the SDK default clock; clk_adc keeps its
+// 48 MHz source (500 kSa/s, ~2 us/sample). The glitch timeline is
+// microsecond-scale, so no overclock is needed and none of the RP2350
+// vreg/QMI/clk_adc setup applies.
 //
 // GP15 (PWM-VID handback) and GP40 (PWM-VID capture) are NOT connected: the
 // 0-ohm R30 on the GPU PCB is refitted and the GPU drives the MP2888B itself.

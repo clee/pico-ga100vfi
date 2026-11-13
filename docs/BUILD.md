@@ -19,8 +19,8 @@
 
 On RP2040 the firmware runs at the SDK default clock (no overclock/VREG/QMI
 setup) and the ADC samples at ~500 kSa/s (2 µs/sample). The default RP2040 pin
-map matches the KB2040: I2C on GP12/GP13 (STEMMA QT), `PEX_RST` on GP10, NVVDD
-sense on GP26.
+map matches the KB2040: I2C on GP0/GP1 (castellated TX/RX pads), `PEX_RST` on
+GP10, NVVDD sense on GP26.
 
 ## Build
 
@@ -47,8 +47,8 @@ ninja -C build-noadc
 Outputs: `build/pwmvid.uf2` (main firmware), `build/detect.uf2` (standalone I2C probe).
 
 RP2040 boards present as `RPI-RP2` in BOOTSEL mode rather than `RP2350`; on the
-KB2040 the default pin map is I2C on GP12/GP13 (STEMMA QT), `PEX_RST` on GP10,
-and the optional NVVDD sense on GP26 (A0).
+KB2040 the default pin map is I2C on GP0/GP1 (castellated TX/RX pads), `PEX_RST`
+on GP10, and the optional NVVDD sense on GP26 (A0).
 
 ## Flashing
 
