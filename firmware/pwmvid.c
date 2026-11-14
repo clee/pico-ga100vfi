@@ -561,19 +561,23 @@ void __attribute__((naked)) isr_hardfault(void) {
 
 static void reset_reason(void) {
     uint32_t s0 = watchdog_hw->scratch[0];
-    if (!watchdog_caused_reboot())
-        snprintf(reset_note, sizeof reset_note, "power-on / external reset");
-    else if ((s0 & 0xffff0000u) == FAULT_MAGIC)
+    bool wd = watchdog_caused_reboot();
+    // watchdog_enable() marks scratch[4] with a magic; a bootrom/UF2 reset never
+    // sets it, and watchdog_reboot() (hardfault path) clears it. So the fault
+    // magic is checked first, then a real timeout, or it was not a stall.
+    if (wd && (s0 & 0xffff0000u) == FAULT_MAGIC)
         snprintf(reset_note, sizeof reset_note,
                  "HARD FAULT core%lu phase %lu pc=%08lx lr=%08lx cfsr=%08lx",
                  (unsigned long)(s0 >> 8 & 0xff), (unsigned long)(s0 & 0xff),
                  (unsigned long)watchdog_hw->scratch[1],
                  (unsigned long)watchdog_hw->scratch[2],
                  (unsigned long)watchdog_hw->scratch[3]);
-    else
+    else if (wd && watchdog_enable_caused_reboot())
         snprintf(reset_note, sizeof reset_note,
                  "WATCHDOG: core1 stalled in phase %lu",
                  (unsigned long)watchdog_hw->scratch[3]);
+    else
+        snprintf(reset_note, sizeof reset_note, "power-on / external reset");
     watchdog_hw->scratch[0] = 0;
 }
 
